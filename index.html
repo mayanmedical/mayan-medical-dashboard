@@ -258,7 +258,8 @@ async function handleConfirm() {
   const endH = String(parseInt(h) + Math.ceil(parseFloat(s.horasQuirofano))).padStart(2,"0");
   const event = {
     summary: `🏥 ${s.nombreCirugia} — ${s.paciente}`,
-    description: `Cirujano: ${s.cirujano}\nAnestesiólogo: ${s.anestesiologo}\nTipo: ${s.tipoCirugia}\nAnestesia: ${s.anestesia}\nHospitalización: ${s.hospitalizacion}\nSuturas: ${s.suturas}\nInsumos: ${s.insumos}`,
+    description: `━━━━━━━━━━━━━━━━━━━━━━\n🔪 PROCEDIMIENTO\n━━━━━━━━━━━━━━━━━━━━━━\nTipo de cirugía: ${s.tipoCirugia}\nNombre de cirugía: ${s.nombreCirugia}\nHoras de quirófano: ${s.horasQuirofano} hrs\nTipo de anestesia: ${s.anestesia}\nHospitalización: ${s.hospitalizacion}\n¿Cirugía contaminada?: ${s.contaminada}\n\n━━━━━━━━━━━━━━━━━━━━━━\n👤 PACIENTE\n━━━━━━━━━━━━━━━━━━━━━━\nNombre: ${s.paciente}\nEdad: ${s.edadPaciente} años\n\n━━━━━━━━━━━━━━━━━━━━━━\n👨‍⚕️ EQUIPO MÉDICO\n━━━━━━━━━━━━━━━━━━━━━━\nCirujano responsable: ${s.cirujano}\nCirujano ayudante: ${s.ayudante || "No especificado"}\nAnestesiólogo/a: ${s.anestesiologo}\nEmail del médico: ${s.email || "No especificado"}\n¿Quién realiza los pagos?: ${s.pagos}\n\n━━━━━━━━━━━━━━━━━━━━━━\n💊 MATERIALES E INSUMOS\n━━━━━━━━━━━━━━━━━━━━━━\nSuturas: ${s.suturas}\nDrenaje: ${s.drenaje}\nInsumos especiales: ${s.insumos || "Ninguno"}\nEquipo de laparoscopia: ${s.laparoscopia}\n${s.notas ? "\n━━━━━━━━━━━━━━━━━━━━━━\n📝 NOTAS\n━━━━━━━━━━━━━━━━━━━━━━\n" + s.notas : ""}`,
+    colorId: "11",
     start: { dateTime: `${s.fecha}T${s.horario}:00`, timeZone: "America/Cancun" },
     end: { dateTime: `${s.fecha}T${endH}:${m}:00`, timeZone: "America/Cancun" },
     attendees: s.email ? [{ email: s.email }] : [],
