@@ -1,1 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mayan Medical Group — Solicitudes</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; min-height: 100vh; }
+    .container { max-width: 780px; margin: 0 auto; padding: 2rem 1rem; }
+    h1 { font-size: 20px; font-weight: 500; margin-bottom: 4px; }
+    .subtitle { font-size: 14px; color: #666; margin-bottom: 1.5rem; }
+    .top-bar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 12px; }
+    .btn-google { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; border: 1px solid #ddd; background: white; cursor: pointer; font-size: 13px; font-weight: 500; color: #333; }
+    .btn-google:hover { background: #f9f9f9; }
+    .btn-google svg { flex-shrink: 0; }
+    .connected-badge { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 8px; background: #EAF3DE; font-size: 13px; color: #27500A; font-weight: 500; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+    .stat { border-radius: 10px; padding: 14px 16px; }
+    .stat p:first-child { font-size: 13px; margin-bottom: 4px; }
+    .stat p:last-child { font-size: 26px; font-weight: 500; }
+    .stat.pendiente { background: #FAEEDA; color: #633806; }
+    .stat.confirmado { background: #EAF3DE; color: #27500A; }
+    .stat.rechazado { background: #FCEBEB; color: #791F1F; }
+    .filters { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+    .filter-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid #ddd; background: transparent; cursor: pointer; font-size: 13px; color: #333; }
+    .filter-btn.active { background: #eee; font-weight: 500; }
+    .cards { display: flex; flex-direction: column; gap: 10px; }
+    .card { background: white; border: 1px solid #e5e5e5; border-radius: 12px; padding: 14px 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: border-color 0.15s; }
+    .card:hover { border-color: #bbb; }
+    .card-title { font-weight: 500; font-size: 15px; margin-bottom: 4px; }
+    .card-sub { font-size: 13px; color: #666; }
+    .card-right { display: flex; align-items: center; gap: 12px; }
+    .badge { font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+    .badge.pendiente { background: #FAEEDA; color: #633806; }
+    .badge.confirmado { background: #EAF3DE; color: #27500A; }
+    .badge.rechazado { background: #FCEBEB; color: #791F1F; }
+    .chevron { color: #999; font-size: 18px; }
+    .empty { text-align: center; color: #999; font-size: 14px; padding: 2rem; }
 
+    /* Modal */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem; }
+    .modal { background: white; border-radius: 16px; border: 1px solid #e5e5e5; width: min(660px, 100%); max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
+    .modal-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+    .modal-header-left p:first-child { font-size: 17px; font-weight: 500; }
+    .modal-header-left p:last-child { font-size: 13px; color: #666; margin-top: 2px; }
+    .modal-header-right { display: flex; align-items: center; gap: 8px; }
+    .btn-close { background: none; border: none; cursor: pointer; font-size: 20px; color: #999; padding: 0 4px; line-height: 1; }
+    .modal-body { overflow-y: auto; padding: 1.25rem 1.5rem; flex: 1; }
+    .section-label { font-size: 13px; font-weight: 500; color: #888; text-transform: uppercase; letter-spacing: 0.8px; margin: 16px 0 10px; }
+    .section-label:first-child { margin-top: 0; }
+    .row { display: flex; gap: 8px; padding: 5px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+    .row-label { color: #666; min-width: 180px; flex-shrink: 0; }
+    .row-value { color: #1a1a1a; flex: 1; }
+    .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid #eee; }
+    .warning-box { font-size: 13px; color: #633806; background: #FAEEDA; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; }
+    .info-box { font-size: 12px; color: #185FA5; background: #E6F1FB; border-radius: 8px; padding: 6px 12px; margin-bottom: 10px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    .btn-reject { padding: 8px 20px; border-radius: 8px; border: 1px solid #ddd; background: #FCEBEB; color: #791F1F; cursor: pointer; font-weight: 500; font-size: 14px; }
+    .btn-confirm { padding: 8px 20px; border-radius: 8px; border: 1px solid #aad4a0; background: #EAF3DE; color: #27500A; cursor: pointer; font-weight: 500; font-size: 14px; }
+    .btn-confirm:disabled { background: #f0f0f0; color: #aaa; border-color: #ddd; cursor: not-allowed; }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 500; z-index: 200; white-space: nowrap; border: 1px solid; }
+    .toast.success { background: #EAF3DE; color: #27500A; border-color: #C0DD97; }
+    .toast.danger { background: #FCEBEB; color: #791F1F; border-color: #F7C1C1; }
+    .toast.info { background: #E6F1FB; color: #185FA5; border-color: #B5D4F4; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="top-bar">
+    <div>
+      <h1>Solicitudes de programación</h1>
+      <p class="subtitle">Mayan Medical Group</p>
+    </div>
+    <div id="gauth-area">
+      <button class="btn-google" onclick="handleGoogleLogin()">
+        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Conectar Google Calendar
+      </button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat pendiente"><p>Pendientes</p><p id="cnt-pendiente">0</p></div>
+    <div class="stat confirmado"><p>Confirmadas</p><p id="cnt-confirmado">0</p></div>
+    <div class="stat rechazado"><p>Rechazadas</p><p id="cnt-rechazado">0</p></div>
+  </div>
+
+  <div class="filters">
+    <button class="filter-btn active" onclick="setFiltro('todas', this)">Todas</button>
+    <button class="filter-btn" onclick="setFiltro('pendiente', this)">Pendiente</button>
+    <button class="filter-btn" onclick="setFiltro('confirmado', this)">Confirmado</button>
+    <button class="filter-btn" onclick="setFiltro('rechazado', this)">Rechazado</button>
+  </div>
+
+  <div class="cards" id="cards"></div>
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="modal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <p id="m-titulo"></p>
+        <p id="m-cirujano"></p>
+      </div>
+      <div class="modal-header-right">
+        <span class="badge" id="m-badge"></span>
+        <button class="btn-close" onclick="closeModal()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast" style="display:none"></div>
+
+<script>
+const CLIENT_ID = "306291411851-no6b8u0u4imn7phjfkg276po7e2i024h.apps.googleusercontent.com";
+const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email";
+
+let solicitudes = JSON.parse(localStorage.getItem("solicitudes") || "null") || [
+  { id: 1, status: "pendiente", tipoCirugia: "Laparoscopia", nombreCirugia: "Colecistectomía laparoscópica", fecha: "2026-06-10", horario: "08:00", horasQuirofano: "2", hospitalizacion: "24 horas", anestesia: "General", contaminada: "No", paciente: "María López", edadPaciente: "45", cirujano: "Dr. Ramírez Torres", ayudante: "Dr. Méndez", anestesiologo: "Dra. Soto", pagos: "Médico", suturas: "Vicryl 2-0 x3, Nylon 3-0 x2", drenaje: "No requiere", insumos: "Clip laparoscópico Hem-o-lok", laparoscopia: "Torre completa", email: "dr.ramirez@email.com", notas: "" },
+  { id: 2, status: "pendiente", tipoCirugia: "Cirugía abierta", nombreCirugia: "Hernioplastia inguinal", fecha: "2026-06-11", horario: "10:30", horasQuirofano: "1.5", hospitalizacion: "Ambulatorio", anestesia: "Regional", contaminada: "No", paciente: "Carlos Pérez", edadPaciente: "62", cirujano: "Dra. Flores Vega", ayudante: "", anestesiologo: "Dr. Gutiérrez", pagos: "Paciente", suturas: "Prolene 2-0 x4", drenaje: "No requiere", insumos: "Malla de polipropileno 10x15", laparoscopia: "No requiere", email: "dra.flores@email.com", notas: "" }
+];
+
+let filtroActual = "todas";
+let selectedId = null;
+let accessToken = null;
+let tokenClient = null;
+let gReady = false;
+let gUser = null;
+
+function save() { localStorage.setItem("solicitudes", JSON.stringify(solicitudes)); }
+
+window.addEventListener("load", () => {
+  const interval = setInterval(() => {
+    if (window.google) {
+      clearInterval(interval);
+      tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: async (resp) => {
+          if (resp.error) return;
+          accessToken = resp.access_token;
+          const info = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          }).then(r => r.json());
+          gUser = info.email;
+          gReady = true;
+          document.getElementById("gauth-area").innerHTML = `<div class="connected-badge">✓ Calendar · ${gUser}</div>`;
+          showToast("Google Calendar conectado", "success");
+          render();
+        }
+      });
+    }
+  }, 300);
+  render();
+});
+
+function handleGoogleLogin() {
+  if (tokenClient) tokenClient.requestAccessToken();
+}
+
+function setFiltro(f, btn) {
+  filtroActual = f;
+  document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  render();
+}
+
+function render() {
+  const list = filtroActual === "todas" ? solicitudes : solicitudes.filter(s => s.status === filtroActual);
+  document.getElementById("cnt-pendiente").textContent = solicitudes.filter(s => s.status === "pendiente").length;
+  document.getElementById("cnt-confirmado").textContent = solicitudes.filter(s => s.status === "confirmado").length;
+  document.getElementById("cnt-rechazado").textContent = solicitudes.filter(s => s.status === "rechazado").length;
+  const container = document.getElementById("cards");
+  if (list.length === 0) { container.innerHTML = '<p class="empty">No hay solicitudes en esta categoría.</p>'; return; }
+  container.innerHTML = list.map(s => `
+    <div class="card" onclick="openModal(${s.id})">
+      <div>
+        <p class="card-title">${s.nombreCirugia}</p>
+        <p class="card-sub">${s.cirujano} · ${s.fecha} · ${s.horario} · ${s.paciente}</p>
+      </div>
+      <div class="card-right">
+        <span class="badge ${s.status}">${{pendiente:"Pendiente",confirmado:"Confirmado",rechazado:"Rechazado"}[s.status]}</span>
+        <span class="chevron">›</span>
+      </div>
+    </div>
+  `).join("");
+}
+
+function row(label, value) {
+  if (!value) return "";
+  return `<div class="row"><span class="row-label">${label}</span><span class="row-value">${value}</span></div>`;
+}
+
+function openModal(id) {
+  selectedId = id;
+  const s = solicitudes.find(x => x.id === id);
+  document.getElementById("m-titulo").textContent = s.nombreCirugia;
+  document.getElementById("m-cirujano").textContent = s.cirujano;
+  const badge = document.getElementById("m-badge");
+  badge.textContent = {pendiente:"Pendiente",confirmado:"Confirmado",rechazado:"Rechazado"}[s.status];
+  badge.className = "badge " + s.status;
+  document.getElementById("modal-body").innerHTML = `
+    <p class="section-label">Datos del procedimiento</p>
+    ${row("Tipo de cirugía", s.tipoCirugia)}
+    ${row("Nombre de cirugía", s.nombreCirugia)}
+    ${row("Fecha", s.fecha)}
+    ${row("Horario", s.horario)}
+    ${row("Horas de quirófano", s.horasQuirofano)}
+    ${row("Hospitalización", s.hospitalizacion)}
+    ${row("Tipo de anestesia", s.anestesia)}
+    ${row("¿Cirugía contaminada?", s.contaminada)}
+    <p class="section-label">Paciente y equipo médico</p>
+    ${row("Paciente", s.paciente)}
+    ${row("Edad del paciente", s.edadPaciente)}
+    ${row("Cirujano responsable", s.cirujano)}
+    ${row("Cirujano ayudante", s.ayudante)}
+    ${row("Anestesiólogo/a", s.anestesiologo)}
+    ${row("Email del médico", s.email)}
+    ${row("¿Quién realiza los pagos?", s.pagos)}
+    <p class="section-label">Materiales e insumos</p>
+    ${row("Suturas", s.suturas)}
+    ${row("Drenaje", s.drenaje)}
+    ${row("Insumos especiales", s.insumos)}
+    ${row("Equipo de laparoscopia", s.laparoscopia)}
+    ${s.notas ? row("Notas", s.notas) : ""}
+  `;
+  const footer = document.getElementById("modal-footer");
+  if (s.status === "pendiente") {
+    footer.innerHTML = `
+      <div class="warning-box">⚠️ Verifica manualmente la disponibilidad antes de confirmar. Al confirmar se agendará en Google Calendar y se enviará invitación al médico.</div>
+      ${!gReady ? '<div class="info-box">🔗 Conecta tu Google Calendar antes de confirmar.</div>' : ""}
+      <div class="modal-actions">
+        <button class="btn-reject" onclick="handleReject()">✕ Rechazar</button>
+        <button class="btn-confirm" onclick="handleConfirm()" ${!gReady ? "disabled" : ""}>✓ Disponible — Confirmar y agendar</button>
+      </div>
+    `;
+  } else {
+    footer.innerHTML = "";
+  }
+  document.getElementById("modal").style.display = "flex";
+}
+
+function closeModal() { document.getElementById("modal").style.display = "none"; }
+
+async function handleConfirm() {
+  const s = solicitudes.find(x => x.id === selectedId);
+  showToast("Creando evento en Google Calendar...", "info");
+  const [h, m] = s.horario.split(":");
+  const endH = String(parseInt(h) + Math.ceil(parseFloat(s.horasQuirofano))).padStart(2,"0");
+  const event = {
+    summary: `🏥 ${s.nombreCirugia} — ${s.paciente}`,
+    description: `Cirujano: ${s.cirujano}\nAnestesiólogo: ${s.anestesiologo}\nTipo: ${s.tipoCirugia}\nAnestesia: ${s.anestesia}\nHospitalización: ${s.hospitalizacion}\nSuturas: ${s.suturas}\nInsumos: ${s.insumos}`,
+    start: { dateTime: `${s.fecha}T${s.horario}:00`, timeZone: "America/Cancun" },
+    end: { dateTime: `${s.fecha}T${endH}:${m}:00`, timeZone: "America/Cancun" },
+    attendees: s.email ? [{ email: s.email }] : [],
+    sendUpdates: "all"
+  };
+  const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(event)
+  });
+  solicitudes = solicitudes.map(x => x.id === selectedId ? { ...x, status: "confirmado" } : x);
+  save(); closeModal(); render();
+  showToast(res.ok ? `✓ Evento creado e invitación enviada a ${s.email}` : "✓ Confirmado, pero hubo un error con Calendar.", res.ok ? "success" : "danger");
+}
+
+function handleReject() {
+  solicitudes = solicitudes.map(x => x.id === selectedId ? { ...x, status: "rechazado" } : x);
+  save(); closeModal(); render();
+  showToast("Solicitud rechazada.", "danger");
+}
+
+let toastTimer;
+function showToast(msg, type) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.className = "toast " + type; t.style.display = "block";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.style.display = "none"; }, 4000);
+}
+</script>
+</body>
+</html>
