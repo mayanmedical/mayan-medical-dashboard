@@ -543,9 +543,12 @@ function handleGoogleLogin() {
   if (tokenClient) tokenClient.requestAccessToken({ prompt: "select_account" });
 }
 
+let tokenExpiry = 0; // timestamp en ms cuando expira el token
+
 async function onTokenReceived(resp) {
   if (resp.error) return;
   accessToken = resp.access_token;
+  tokenExpiry = Date.now() + 55 * 60 * 1000; // 55 min (expira a los 60)
   try {
     const info = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", { headers: { Authorization: `Bearer ${accessToken}` } }).then(r => r.json());
     gUser = info.email;
@@ -554,7 +557,6 @@ async function onTokenReceived(resp) {
   gReady = true;
   document.getElementById("gauth-area").innerHTML = `<div class="connected-badge">✓ Calendar · ${gUser}</div>`;
   render();
-  // Procesar cola inmediatamente al conectar
   await processQueue();
   scheduleTokenRenewal();
 }
@@ -562,8 +564,11 @@ async function onTokenReceived(resp) {
 function scheduleTokenRenewal() {
   clearInterval(renewalTimer);
   renewalTimer = setInterval(async () => {
-    // Solo procesar cola si ya hay token activo, sin pedir nuevo popup
-    await processQueue();
+    // Solo procesar cola, sin tocar el token ni abrir popups
+    if (gReady && accessToken && Date.now() < tokenExpiry) {
+      await processQueue();
+    }
+    // Si el token expiró, simplemente esperar a que el usuario reconecte manualmente
   }, 5 * 60 * 1000);
 }
 
