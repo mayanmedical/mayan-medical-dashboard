@@ -583,7 +583,7 @@ window.addEventListener("load", () => {
       });
       // Conexión silenciosa automática si ya se conectó antes
       if (localStorage.getItem("mmg_gcal_user")) {
-        tokenClient.requestAccessToken({ prompt: "" });
+        tokenClient.requestAccessToken({ prompt: "none" });
       }
     }
   }, 300);
