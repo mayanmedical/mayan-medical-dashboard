@@ -328,9 +328,10 @@ function openModal(id) {
 function closeModal() { document.getElementById("modal").style.display = "none"; }
 
 function openEdit(id) {
+  alert("openEdit llamado con id: " + id);
   editingId = id;
   const s = solicitudes.find(x => x.id === id);
-  if (!s) { console.error("No se encontró solicitud con id", id); return; }
+  if (!s) { alert("ERROR: no se encontró solicitud con id " + id); return; }
   const ed = editOverrides[id] || {};
 
   document.getElementById("e-nombre").value = ed.nombreCirugia || s.nombreCirugia || "";
