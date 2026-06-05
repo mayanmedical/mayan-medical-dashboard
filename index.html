@@ -182,10 +182,17 @@ async function fetchSheet() {
     const rows = text.split("\n").map(r => {
       const result = [];
       let cur = "", inQ = false;
-      for (let c of r) {
-        if (c === '"') inQ = !inQ;
-        else if (c === ',' && !inQ) { result.push(cur.trim()); cur = ""; }
-        else cur += c;
+      for (let i = 0; i < r.length; i++) {
+        const c = r[i];
+        if (c === '"') {
+          if (inQ && r[i+1] === '"') { cur += '"'; i++; }
+          else inQ = !inQ;
+        } else if (c === ',' && !inQ) {
+          result.push(cur.trim());
+          cur = "";
+        } else {
+          cur += c;
+        }
       }
       result.push(cur.trim());
       return result;
