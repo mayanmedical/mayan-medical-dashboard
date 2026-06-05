@@ -36,6 +36,9 @@
     .badge.pendiente { background: #FAEEDA; color: #633806; }
     .badge.confirmado { background: #EAF3DE; color: #27500A; }
     .badge.rechazado { background: #FCEBEB; color: #791F1F; }
+    .badge.cancelado { background: #e8e8e8; color: #555; }
+    .stat.cancelado { background: #e8e8e8; color: #444; }
+    .btn-cancel { padding: 8px 20px; border-radius: 8px; border: 1px solid #ccc; background: #f0f0f0; color: #444; cursor: pointer; font-weight: 500; font-size: 14px; }
     .chevron { color: #999; font-size: 18px; }
     .empty { text-align: center; color: #999; font-size: 14px; padding: 2rem; }
     .loading { text-align: center; color: #999; font-size: 14px; padding: 2rem; }
@@ -103,6 +106,7 @@
     <div class="stat pendiente"><p>Pendientes</p><p id="cnt-pendiente">0</p></div>
     <div class="stat confirmado"><p>Confirmadas</p><p id="cnt-confirmado">0</p></div>
     <div class="stat rechazado"><p>Rechazadas</p><p id="cnt-rechazado">0</p></div>
+    <div class="stat cancelado" style="grid-column: span 3; padding: 10px 16px; display:flex; justify-content:space-between; align-items:center;"><p>Canceladas</p><p id="cnt-cancelado">0</p></div>
   </div>
 
   <div class="filters">
@@ -110,6 +114,7 @@
     <button class="filter-btn" onclick="setFiltro('pendiente', this)">Pendiente</button>
     <button class="filter-btn" onclick="setFiltro('confirmado', this)">Confirmado</button>
     <button class="filter-btn" onclick="setFiltro('rechazado', this)">Rechazado</button>
+    <button class="filter-btn" onclick="setFiltro('cancelado', this)">Cancelado</button>
   </div>
 
   <div class="cards" id="cards"><p class="loading">Cargando solicitudes...</p></div>
@@ -253,7 +258,8 @@ function render() {
   document.getElementById("cnt-pendiente").textContent = solicitudes.filter(s => getStatus(s) === "pendiente").length;
   document.getElementById("cnt-confirmado").textContent = solicitudes.filter(s => getStatus(s) === "confirmado").length;
   document.getElementById("cnt-rechazado").textContent = solicitudes.filter(s => getStatus(s) === "rechazado").length;
-  const labels = { pendiente: "Pendiente", confirmado: "Confirmado", rechazado: "Rechazado" };
+  document.getElementById("cnt-cancelado").textContent = solicitudes.filter(s => getStatus(s) === "cancelado").length;
+  const labels = { pendiente: "Pendiente", confirmado: "Confirmado", rechazado: "Rechazado", cancelado: "Cancelado" };
   const container = document.getElementById("cards");
   if (list.length === 0) { container.innerHTML = '<p class="empty">No hay solicitudes en esta categoría.</p>'; return; }
   container.innerHTML = list.map(s => `
@@ -316,6 +322,7 @@ function openModal(id) {
     ` : ""}
     <div class="modal-actions">
       <button class="btn-edit" onclick="openEdit(${id})">✏️ Editar</button>
+      ${status !== "cancelado" ? `<button class="btn-cancel" onclick="handleCancel(${id})">🚫 Cancelar cirugía</button>` : ""}
       ${status === "pendiente" ? `
         <button class="btn-reject" onclick="handleReject(${id})">✕ Rechazar</button>
         <button class="btn-confirm" onclick="handleConfirm(${id})" ${!gReady ? "disabled" : ""}>✓ Disponible — Confirmar y agendar</button>
@@ -328,10 +335,9 @@ function openModal(id) {
 function closeModal() { document.getElementById("modal").style.display = "none"; }
 
 function openEdit(id) {
-  alert("openEdit llamado con id: " + id);
   editingId = id;
   const s = solicitudes.find(x => x.id === id);
-  if (!s) { alert("ERROR: no se encontró solicitud con id " + id); return; }
+  if (!s) return;
   const ed = editOverrides[id] || {};
 
   document.getElementById("e-nombre").value = ed.nombreCirugia || s.nombreCirugia || "";
@@ -456,6 +462,47 @@ async function handleConfirm(id) {
   overrides[id] = "confirmado";
   closeModal(); render();
   showToast(res.ok ? `✓ Confirmado. Evento creado${s.email ? " e invitación enviada" : ""}.` : "✓ Confirmado, pero hubo un error con Calendar.", res.ok ? "success" : "danger");
+}
+
+async function handleCancel(id) {
+  if (!confirm("¿Seguro que deseas cancelar esta cirugía? El evento en Calendar cambiará a gris y tachado.")) return;
+  overrides[id] = "cancelado";
+  closeModal(); render();
+
+  if (gReady && accessToken) {
+    showToast("⏳ Actualizando evento en Calendar...", "info");
+    try {
+      const s = solicitudes.find(x => x.id === id);
+      const query = encodeURIComponent(s.nombreCirugia);
+      const searchRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?q=${query}&maxResults=10`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const searchData = await searchRes.json();
+      const existing = searchData.items && searchData.items.find(e => e.summary && e.summary.includes(s.paciente));
+      if (existing) {
+        const patchRes = await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/primary/events/${existing.id}`,
+          {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              summary: `❌ [CANCELADO] ${existing.summary.replace("🏥 ", "")}`,
+              colorId: "8",
+              description: (existing.description || "") + `\n\n🚫 CANCELADO\nFecha de cancelación: ${new Date().toLocaleString("es-MX")}`
+            })
+          }
+        );
+        showToast(patchRes.ok ? "🚫 Cirugía cancelada. Evento actualizado en Calendar." : "🚫 Cancelada, pero hubo un error en Calendar.", patchRes.ok ? "info" : "danger");
+      } else {
+        showToast("🚫 Cirugía cancelada. No se encontró evento en Calendar.", "info");
+      }
+    } catch(e) {
+      showToast("🚫 Cancelada. Error al conectar con Calendar.", "danger");
+    }
+  } else {
+    showToast("🚫 Cirugía cancelada.", "info");
+  }
 }
 
 function handleReject(id) {
