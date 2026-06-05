@@ -342,9 +342,9 @@ function render() {
         <div class="card-left">
           <p class="card-title">${s.nombreCirugia || "Sin nombre"}</p>
           <p class="card-sub">${s.cirujano} · ${s.fecha} · ${s.horario} · ${s.paciente}</p>
-          ${calChip ? `<div style="margin-top:6px">${calChip}</div>` : ""}
         </div>
         <div class="card-right">
+          ${calChip}
           <span class="badge ${st}">${labels[st]}</span>
           <span class="chevron">›</span>
         </div>
@@ -560,10 +560,9 @@ async function onTokenReceived(resp) {
 }
 
 function scheduleTokenRenewal() {
-  clearTimeout(renewalTimer);
+  clearInterval(renewalTimer);
   renewalTimer = setInterval(async () => {
-    if (tokenClient) tokenClient.requestAccessToken({ prompt: "" });
-    // También procesar cola cada 5 min por si quedó algo pendiente
+    // Solo procesar cola si ya hay token activo, sin pedir nuevo popup
     await processQueue();
   }, 5 * 60 * 1000);
 }
