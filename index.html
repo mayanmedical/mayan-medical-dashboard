@@ -334,14 +334,15 @@ function render() {
     let calChip = "";
     if (st === "confirmado") {
       calChip = calSynced[s.id]
-        ? `<span class="cal-chip synced">✓ En Calendar</span>`
-        : `<span class="cal-chip pending">⏳ Pendiente Calendar</span>`;
+        ? `<span class="cal-chip synced">📅 En Calendar</span>`
+        : `<span class="cal-chip pending">⏳ Sin sincronizar</span>`;
     }
     return `
       <div class="card" onclick="openModal(${s.id})">
         <div class="card-left">
           <p class="card-title">${s.nombreCirugia || "Sin nombre"}</p>
-          <p class="card-sub">${s.cirujano} · ${s.fecha} · ${s.horario} · ${s.paciente} ${calChip}</p>
+          <p class="card-sub">${s.cirujano} · ${s.fecha} · ${s.horario} · ${s.paciente}</p>
+          ${calChip ? `<div style="margin-top:6px">${calChip}</div>` : ""}
         </div>
         <div class="card-right">
           <span class="badge ${st}">${labels[st]}</span>
