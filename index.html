@@ -64,7 +64,7 @@
     .btn-edit { padding: 8px 20px; border-radius: 8px; border: 1px solid #c5b8e8; background: #f0ecfb; color: #4a2d99; cursor: pointer; font-weight: 500; font-size: 14px; }
 
     /* EDIT MODAL */
-    .edit-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; z-index: 110; padding: 1rem; }
+    .edit-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 1rem; }
     .edit-modal { background: white; border-radius: 16px; border: 1px solid #e5e5e5; width: min(560px, 100%); max-height: 90vh; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 14px; }
     .edit-modal h3 { font-size: 17px; font-weight: 600; color: #1a1a1a; padding-bottom: 10px; border-bottom: 1px solid #eee; }
     .edit-field { display: flex; flex-direction: column; gap: 5px; }
@@ -330,21 +330,35 @@ function closeModal() { document.getElementById("modal").style.display = "none";
 function openEdit(id) {
   editingId = id;
   const s = solicitudes.find(x => x.id === id);
+  if (!s) { console.error("No se encontró solicitud con id", id); return; }
   const ed = editOverrides[id] || {};
+
   document.getElementById("e-nombre").value = ed.nombreCirugia || s.nombreCirugia || "";
   document.getElementById("e-fecha").value = ed.fecha || s.fecha || "";
   document.getElementById("e-horario").value = ed.horario || s.horario || "";
+
   const horasEl = document.getElementById("e-horas");
-  const horasVal = ed.horasQuirofano || s.horasQuirofano || "1 hora";
-  for (let o of horasEl.options) if (o.value === horasVal) { o.selected = true; break; }
+  const horasVal = ed.horasQuirofano || s.horasQuirofano || "";
+  let horasMatch = false;
+  for (let o of horasEl.options) { if (o.value === horasVal) { o.selected = true; horasMatch = true; break; } }
+  if (!horasMatch) horasEl.selectedIndex = 0;
+
   const hospEl = document.getElementById("e-hospitalizacion");
-  const hospVal = ed.hospitalizacion || s.hospitalizacion || "Ambulatoria";
-  for (let o of hospEl.options) if (o.value === hospVal) { o.selected = true; break; }
+  const hospVal = ed.hospitalizacion || s.hospitalizacion || "";
+  let hospMatch = false;
+  for (let o of hospEl.options) { if (o.value === hospVal) { o.selected = true; hospMatch = true; break; } }
+  if (!hospMatch) hospEl.selectedIndex = 0;
+
   document.getElementById("e-cirujano").value = ed.cirujano || s.cirujano || "";
   document.getElementById("e-anestesiologo").value = ed.anestesiologo || s.anestesiologo || "";
   document.getElementById("e-notas").value = ed.notas || s.notas || "";
-  closeModal();
-  document.getElementById("edit-modal").style.display = "flex";
+
+  // Cerrar modal de detalle y mostrar el de edición
+  document.getElementById("modal").style.display = "none";
+  const editEl = document.getElementById("edit-modal");
+  editEl.style.display = "flex";
+  editEl.style.visibility = "visible";
+  editEl.style.opacity = "1";
 }
 
 function closeEdit() { document.getElementById("edit-modal").style.display = "none"; editingId = null; }
