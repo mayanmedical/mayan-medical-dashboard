@@ -118,6 +118,33 @@
   </div>
 </div>
 
+<!-- EDIT MODAL -->
+<div class="edit-overlay" id="edit-modal" style="display:none">
+  <div class="edit-modal">
+    <h3>✏️ Editar solicitud</h3>
+    <div class="edit-field"><label>Nombre de cirugía</label><input id="e-nombre" type="text" /></div>
+    <div class="edit-field"><label>Fecha</label><input id="e-fecha" type="text" placeholder="DD/MM/AAAA" /></div>
+    <div class="edit-field"><label>Horario</label><input id="e-horario" type="text" placeholder="08:00" /></div>
+    <div class="edit-field"><label>Horas de quirófano</label>
+      <select id="e-horas">
+        <option>1 hora</option><option>2 horas</option><option>3 horas</option><option>4 horas</option><option>5 horas</option><option>15 minutos</option>
+      </select>
+    </div>
+    <div class="edit-field"><label>Hospitalización</label>
+      <select id="e-hospitalizacion">
+        <option>Ambulatoria</option><option>1 noche</option><option>2 noches</option><option>3 noches</option>
+      </select>
+    </div>
+    <div class="edit-field"><label>Cirujano responsable</label><input id="e-cirujano" type="text" /></div>
+    <div class="edit-field"><label>Anestesiólogo/a</label><input id="e-anestesiologo" type="text" /></div>
+    <div class="edit-field"><label>Notas / Motivo del cambio</label><textarea id="e-notas" placeholder="Ej: Médico solicitó cambio de fecha por agenda..."></textarea></div>
+    <div class="edit-actions">
+      <button class="btn-reject" onclick="closeEdit()">Cancelar</button>
+      <button class="btn-save" onclick="saveEdit()">💾 Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" style="display:none"></div>
 
 <script>
@@ -267,16 +294,19 @@ function openModal(id) {
     ${s.notas ? row("Notas", s.notas) : ""}
   `;
   const footer = document.getElementById("modal-footer");
-  if (status === "pendiente") {
     footer.innerHTML = `
+    ${status === "pendiente" ? `
       <div class="warning-box">⚠️ Verifica disponibilidad antes de confirmar. Al confirmar se agendará en Google Calendar y se enviará invitación al médico.</div>
       ${!gReady ? '<div class="info-box">🔗 Conecta tu Google Calendar antes de confirmar.</div>' : ""}
-      <div class="modal-actions">
+    ` : ""}
+    <div class="modal-actions">
+      <button class="btn-edit" onclick="openEdit(${id})">✏️ Editar</button>
+      ${status === "pendiente" ? `
         <button class="btn-reject" onclick="handleReject(${id})">✕ Rechazar</button>
         <button class="btn-confirm" onclick="handleConfirm(${id})" ${!gReady ? "disabled" : ""}>✓ Disponible — Confirmar y agendar</button>
-      </div>
-    `;
-  } else { footer.innerHTML = ""; }
+      ` : ""}
+    </div>
+  `;
   document.getElementById("modal").style.display = "flex";
 }
 
@@ -323,7 +353,97 @@ function setFiltro(f, btn) {
   render();
 }
 
-let toastTimer;
+let editingId = null;
+
+function openEdit(id) {
+  editingId = id;
+  const s = solicitudes.find(x => x.id === id);
+  const ed = editOverrides[id] || {};
+  document.getElementById("e-nombre").value = ed.nombreCirugia || s.nombreCirugia;
+  document.getElementById("e-fecha").value = ed.fecha || s.fecha;
+  document.getElementById("e-horario").value = ed.horario || s.horario;
+  document.getElementById("e-horas").value = ed.horasQuirofano || s.horasQuirofano;
+  document.getElementById("e-hospitalizacion").value = ed.hospitalizacion || s.hospitalizacion;
+  document.getElementById("e-cirujano").value = ed.cirujano || s.cirujano;
+  document.getElementById("e-anestesiologo").value = ed.anestesiologo || s.anestesiologo;
+  document.getElementById("e-notas").value = ed.notas || s.notas || "";
+  closeModal();
+  document.getElementById("edit-modal").style.display = "flex";
+}
+
+function closeEdit() { document.getElementById("edit-modal").style.display = "none"; editingId = null; }
+
+async function saveEdit() {
+  const now = new Date().toLocaleString("es-MX");
+  const changes = {
+    nombreCirugia: document.getElementById("e-nombre").value,
+    fecha: document.getElementById("e-fecha").value,
+    horario: document.getElementById("e-horario").value,
+    horasQuirofano: document.getElementById("e-horas").value,
+    hospitalizacion: document.getElementById("e-hospitalizacion").value,
+    cirujano: document.getElementById("e-cirujano").value,
+    anestesiologo: document.getElementById("e-anestesiologo").value,
+    notas: document.getElementById("e-notas").value,
+    ultimaModificacion: now
+  };
+  editOverrides[editingId] = changes;
+  const idx = solicitudes.findIndex(x => x.id === editingId);
+  const s = { ...solicitudes[idx], ...changes };
+  if (idx >= 0) solicitudes[idx] = s;
+  closeEdit();
+  render();
+
+  // Si hay Google Calendar conectado, actualizar el evento
+  if (gReady && accessToken) {
+    showToast("⏳ Actualizando evento en Google Calendar...", "info");
+    try {
+      // Buscar evento existente por título
+      const query = encodeURIComponent(`🏥 ${s.nombreCirugia}`);
+      const searchRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?q=${query}&maxResults=10`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const searchData = await searchRes.json();
+      const existing = searchData.items && searchData.items.find(e => e.summary && e.summary.includes(s.paciente));
+
+      // Construir evento actualizado
+      const parts = (s.fecha || "").split("/");
+      const fechaISO = parts.length === 3 ? `${parts[2]}-${parts[1].padStart(2,"0")}-${parts[0].padStart(2,"0")}` : s.fecha;
+      const hNum = parseInt((s.horario || "08:00").split(":")[0]) || 8;
+      const mRaw = (s.horario || "08:00").split(":")[1] || "00";
+      const endH = String(hNum + Math.ceil(parseFloat(s.horasQuirofano) || 2)).padStart(2,"0");
+      const updatedEvent = {
+        summary: `🏥 ${s.nombreCirugia} — ${s.paciente}`,
+        description: `PROCEDIMIENTO\nTipo: ${s.tipoCirugia}\nNombre: ${s.nombreCirugia}\nQuirófano: ${s.horasQuirofano}\nAnestesia: ${s.anestesia}\nHospitalización: ${s.hospitalizacion}\nContaminada: ${s.contaminada}\n\nPACIENTE\nNombre: ${s.paciente}\nEdad: ${s.edadPaciente}\n\nEQUIPO MÉDICO\nCirujano: ${s.cirujano}\nAyudante: ${s.ayudante}\nAnestesiólogo: ${s.anestesiologo}\nEmail: ${s.email}\nPagos: ${s.pagos}\n\nMATERIALES\nSuturas: ${s.suturas}\nDrenaje: ${s.drenaje}\nInsumos: ${s.insumos}\nLaparoscopia: ${s.laparoscopia}\n\n📝 MODIFICACIÓN\n${s.notas}\nFecha de cambio: ${now}`,
+        colorId: "11",
+        start: { dateTime: `${fechaISO}T${String(hNum).padStart(2,"0")}:${mRaw}:00`, timeZone: "America/Cancun" },
+        end: { dateTime: `${fechaISO}T${endH}:${mRaw}:00`, timeZone: "America/Cancun" },
+        attendees: s.email ? [{ email: s.email }] : [],
+        sendUpdates: "all"
+      };
+
+      if (existing) {
+        // Actualizar evento existente
+        const updateRes = await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/primary/events/${existing.id}?sendUpdates=all`,
+          { method: "PUT", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify(updatedEvent) }
+        );
+        showToast(updateRes.ok ? "✓ Evento actualizado en Calendar e invitación reenviada." : "✓ Guardado, pero hubo un error al actualizar Calendar.", updateRes.ok ? "success" : "danger");
+      } else {
+        // No se encontró — crear nuevo evento
+        const createRes = await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all`,
+          { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify(updatedEvent) }
+        );
+        showToast(createRes.ok ? "✓ Cambios guardados y nuevo evento creado en Calendar." : "✓ Guardado, pero hubo un error con Calendar.", createRes.ok ? "success" : "danger");
+      }
+    } catch(e) {
+      showToast("✓ Cambios guardados. Error al conectar con Calendar.", "danger");
+    }
+  } else {
+    showToast("✓ Cambios guardados. Conecta Google Calendar para actualizar el evento.", "success");
+  }
+}
 function showToast(msg, type) {
   const t = document.getElementById("toast");
   t.textContent = msg; t.className = "toast " + type; t.style.display = "block";
